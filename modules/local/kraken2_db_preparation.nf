@@ -1,6 +1,6 @@
 process KRAKEN2_DB_PREPARATION {
-
-    conda "conda-forge::sed=4.7"
+    label 'process_high'
+    conda "conda-forge::sed=4.8 conda-forge::pigz=2.8"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/ubuntu:20.04' :
         'nf-core/ubuntu:20.04' }"
@@ -15,7 +15,13 @@ process KRAKEN2_DB_PREPARATION {
     script:
     """
     mkdir db_tmp
-    tar -xf "${db}" -C db_tmp
+
+    tar \\
+    --use-compress-program="pigz -d -p ${task.cpus} --best" \\
+    -C db_tmp \\
+    -xavf \\
+    "${db}"
+
     mkdir database
     mv `find db_tmp/ -name "*.k2d"` database/
 

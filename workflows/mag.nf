@@ -32,6 +32,7 @@ include { CENTRIFUGE_CENTRIFUGE                                 } from '../modul
 include { CENTRIFUGE_KREPORT                                    } from '../modules/nf-core/centrifuge/kreport/main'
 include { KRONA_KRONADB                                         } from '../modules/nf-core/krona/kronadb/main'
 include { KRONA_KTIMPORTTAXONOMY                                } from '../modules/nf-core/krona/ktimporttaxonomy/main'
+include { MERGE_KRONA                                           } from '../modules/local/merge_krona'
 include { KRAKENTOOLS_KREPORT2KRONA as KREPORT2KRONA_CENTRIFUGE } from '../modules/nf-core/krakentools/kreport2krona/main'
 include { MEGAHIT                                               } from '../modules/nf-core/megahit/main'
 include { SPADES as METASPADES                                  } from '../modules/nf-core/spades/main'
@@ -297,11 +298,28 @@ workflow MAG {
                 [meta_new, report]
             }
 
-        KRONA_KTIMPORTTAXONOMY(
-            ch_tax_classifications,
-            ch_krona_db,
-        )
-        ch_versions = ch_versions.mix(KRONA_KTIMPORTTAXONOMY.out.versions.first())
+        if (params.krona_sum) {
+            ch_krona_reports = ch_tax_classifications
+                .map { meta, report ->
+                    def sample_name = meta.id
+                    "${report},${sample_name}"
+                }
+                .collect()
+                .map { it.join(' ') } // TODO: add meta info about classifier
+
+            MERGE_KRONA(
+                ch_krona_reports,
+                ch_krona_db
+            )
+            ch_versions = ch_versions.mix(MERGE_KRONA.out.versions)
+        }
+        else {
+            KRONA_KTIMPORTTAXONOMY(
+                ch_tax_classifications,
+                ch_krona_db,
+            )
+            ch_versions = ch_versions.mix(KRONA_KTIMPORTTAXONOMY.out.versions.first())
+        }
     }
 
     /*

@@ -280,21 +280,29 @@
                     "default": 15,
                     "description": "The minimum length of reads must have to be retained for downstream analysis."
                 },
-                "fastp_qualified_quality": {
-                    "type": "integer",
-                    "default": 15,
-                    "description": "Minimum phred quality value of a base to be qualified in fastp.",
-                    "help": "Reads with more than 40% of unqualified bases will be discarded."
-                },
-                "fastp_cut_mean_quality": {
-                    "type": "integer",
-                    "default": 15,
-                    "description": "The mean quality requirement used for per read sliding window cutting by fastp.",
-                    "help": "Used in combination with the fastp options '--cut_front' and '--cut_tail'. If the mean quality within a window (of size 4) is below `--fastp_cut_mean_quality`, the bases are dropped and the sliding window is moved further, otherwise it stops."
-                },
                 "fastp_save_trimmed_fail": {
                     "type": "boolean",
                     "description": "Save reads that fail fastp filtering in a separate file. Not used downstream."
+                },
+                "fastp_trim_poly_x": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-fast-forward",
+                    "description": "Fastp option to trim poly x at the beginning/end of sequence (default: true)."
+                },
+                "fastp_cut_mean_quality": {
+                    "type": "integer",
+                    "fa_icon": "fas fa-fast-forward",
+                    "description": "Fastp option of the mean quality requirement shared by cut_front, cut_tail or cut_sliding (default: 20)."
+                },
+                "fastp_length_required": {
+                    "type": "integer",
+                    "fa_icon": "fas fa-fast-forward",
+                    "description": "Reads shorter than length_required will be discarded by fastp (default: 30)."
+                },
+                "fastp_length_limit": {
+                    "type": "integer",
+                    "fa_icon": "fas fa-fast-forward",
+                    "description": "Reads longer than length_limit will be discarded by fastp,  default 0 means no limitation (default: 0)."
                 },
                 "adapterremoval_minquality": {
                     "type": "integer",
@@ -485,6 +493,10 @@
                 "skip_krona": {
                     "type": "boolean",
                     "description": "Skip creating a krona plot for taxonomic binning."
+                },
+                "krona_sum": {
+                    "type": "boolean",
+                    "description": "Create one sum krona plot instead of separate plots."
                 },
                 "cat_db": {
                     "type": "string",

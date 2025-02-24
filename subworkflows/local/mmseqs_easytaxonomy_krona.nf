@@ -1,8 +1,7 @@
-include { ASSEMBLY_SPADES               } from '../assembly_spades'
-include { ASSEMBLY_MEGAHIT              } from '../assembly_megahit'
+include { MMSEQS_EASYTAXONOMY               } from '../../modules/local/mmseqs_easytaxonomy'
 // include { KRONA_KTIMPORTTAXONOMY_MMSEQS } from '../../modules/nf-core/krona/ktimporttaxonomy/main'
 
-workflow ASSEMBLY {
+workflow MMSEQS_EASYTAXONOMY_KRONA {
     take:
     contigs   // channel: [ val(meta), path(contigs) ]
     mmseqs_db // channel: [ val(meta), path(mmseqs_db) ]

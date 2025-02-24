@@ -24,6 +24,7 @@ include { DEPTHS                                                } from '../subwo
 include { LONGREAD_PREPROCESSING                                } from '../subworkflows/local/longread_preprocessing'
 include { SHORTREAD_PREPROCESSING                               } from '../subworkflows/local/shortread_preprocessing'
 include { READ_TAXONOMY                                         } from '../subworkflows/local/read_taxonomy'
+include { CONTIGS_ASSEMBLY                                      } from '../subworkflows/local/contigs_assembly'
 
 //
 // MODULE: Installed directly from nf-core/modules
@@ -226,9 +227,9 @@ workflow MAG {
         }
 
         GUNZIP_ASSEMBLYINPUT(ch_assemblies_split.gzipped)
-        ch_versions = ch_versions.mix(GUNZIP_ASSEMBLYINPUT.out.versions)
 
         ch_assemblies = ch_assemblies.mix(ch_assemblies_split.ungzip, GUNZIP_ASSEMBLYINPUT.out.gunzip)
+        ch_versions = ch_versions.mix(GUNZIP_ASSEMBLYINPUT.out.versions)
     }
 
     /*

@@ -1,7 +1,7 @@
 include { MEGAHIT                   } from '../../modules/nf-core/megahit/main'
 include { MMSEQS_EASYTAXONOMY_KRONA } from './mmseqs_easytaxonomy_krona'
 
-workflow ASSEMBLY_MEGAHIT {
+workflow ASSEMBLY_TAXONOMY_MEGAHIT {
     take:
     short_reads
 
@@ -27,8 +27,8 @@ workflow ASSEMBLY_MEGAHIT {
     }
 
     emit:
-    mmseqs_report = ch_mmseqs_spades     // channel: [ val(meta), [ mmseqs_report ] ]
-    contigs       = ch_assembled_contigs // channel: [ val(meta), [ assembly ] ]
-    versions      = ch_versions          // channel: [ versions.yml ]
+    mmseqs_report = ch_mmseqs_megahit_report // channel: [ val(meta), [ mmseqs_report ] ]
+    contigs       = ch_assembled_contigs     // channel: [ val(meta), [ assembly ] ]
+    versions      = ch_versions              // channel: [ versions.yml ]
 
 }

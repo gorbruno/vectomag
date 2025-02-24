@@ -2,7 +2,7 @@ include { SPADES as METASPADES       } from '../../modules/nf-core/spades/main'
 include { SPADES as METASPADESHYBRID } from '../../modules/nf-core/spades/main'
 include { MMSEQS_EASYTAXONOMY_KRONA  } from './mmseqs_easytaxonomy_krona'
 
-workflow ASSEMBLY_SPADES {
+workflow ASSEMBLY_TAXONOMY_SPADES {
     take:
     short_reads
     long_reads
@@ -44,12 +44,12 @@ workflow ASSEMBLY_SPADES {
             ch_assembled_contigs,
             [ [:], file(params.mmseqs2_db) ] // TODO: add meta, maybe search type or db type
         )
-      ch_mmseqs_spades_report = MMSEQS_EASYTAXONOMY_KRONA.out.report
+        ch_mmseqs_spades_report = MMSEQS_EASYTAXONOMY_KRONA.out.report
     }
 
     emit:
-    mmseqs_report = ch_mmseqs_spades     // channel: [ val(meta), [ mmseqs_report ] ]
-    contigs       = ch_assembled_contigs // channel: [ val(meta), [ assembly ] ]
-    versions      = ch_versions          // channel: [ versions.yml ]
+    mmseqs_report = ch_mmseqs_spades_report // channel: [ val(meta), [ mmseqs_report ] ]
+    contigs       = ch_assembled_contigs    // channel: [ val(meta), [ assembly ] ]
+    versions      = ch_versions             // channel: [ versions.yml ]
 
 }

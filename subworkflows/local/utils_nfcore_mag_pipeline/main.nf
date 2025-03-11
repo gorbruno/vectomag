@@ -116,6 +116,11 @@ workflow PIPELINE_INITIALISATION {
         ch_input_assemblies = Channel.fromList(samplesheetToList(params.assembly_input, "${projectDir}/assets/schema_assembly_input.json"))
     }
 
+    // Validate PRE-TAXONOMY input
+    if (params.taxonomy_input) {
+        ch_input_taxonomy = Channel.fromList(samplesheetToList(params.taxonomy_input, "${projectDir}/assets/schema_taxonomy_input.json"))
+    }
+
     // Prepare ASSEMBLY input channel
     if (params.assembly_input) {
         ch_input_assemblies.map { meta, fasta ->
@@ -124,6 +129,16 @@ workflow PIPELINE_INITIALISATION {
     }
     else {
         ch_input_assemblies = Channel.empty()
+    }
+
+    // Prepare TAXONOMY input channel
+    if (params.taxonomy_input) {
+        ch_input_taxonomy.map { meta, fasta ->
+            return [meta + [id: params.coassemble_group ? "group-${meta.group}" : meta.id], [fasta]]
+        }
+    }
+    else {
+        ch_input_taxonomy = Channel.empty()
     }
 
     // Cross validation of input assembly and read IDs: ensure groups are all represented between reads and assemblies
@@ -150,10 +165,35 @@ workflow PIPELINE_INITIALISATION {
             }
     }
 
+    // Cross validation of input mmseqs and read IDs: ensure groups are all represented between reads and mmseqs taxonomy
+    if (params.assembly_input) {
+        ch_read_ids = ch_samplesheet
+            .map { meta, _sr1, _sr2, _lr -> params.coassemble_group ? meta.group : meta.id }
+            .unique()
+            .toList()
+            .sort()
+
+        ch_taxonomy_ids = ch_input_taxonomy
+            .map { meta, _fasta -> params.coassemble_group ? meta.group : meta.id }
+            .unique()
+            .toList()
+            .sort()
+
+        ch_read_ids
+            .concat(ch_taxonomy_ids)
+            .collect(flat: false)
+            .map { ids1, ids2 ->
+                if (ids1.sort() != ids2.sort()) {
+                    exit(1, "[nf-core/mag] ERROR: supplied IDs or Groups in read and mmseqs CSV files do not match!")
+                }
+            }
+    }
+
     emit:
     raw_short_reads  = ch_raw_short_reads
     raw_long_reads   = ch_raw_long_reads
     input_assemblies = ch_input_assemblies
+    input_taxonomy   = ch_input_taxonomy
     versions         = ch_versions
 }
 

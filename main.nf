@@ -46,6 +46,7 @@ workflow NFCORE_MAG {
         raw_short_reads  // channel: samplesheet read in from --input
         raw_long_reads
         input_assemblies
+        input_mmseqs
 
     main:
 
@@ -55,7 +56,8 @@ workflow NFCORE_MAG {
     MAG (
         raw_short_reads,  // channel: samplesheet read in from --input
         raw_long_reads,
-        input_assemblies
+        input_assemblies,
+        input_mmseqs
     )
     emit:
     multiqc_report = MAG.out.multiqc_report // channel: /path/to/multiqc_report.html
@@ -87,7 +89,8 @@ workflow {
     NFCORE_MAG (
         PIPELINE_INITIALISATION.out.raw_short_reads,
         PIPELINE_INITIALISATION.out.raw_long_reads,
-        PIPELINE_INITIALISATION.out.input_assemblies
+        PIPELINE_INITIALISATION.out.input_assemblies,
+        PIPELINE_INITIALISATION.out.input_taxonomy
     )
     //
     // SUBWORKFLOW: Run completion tasks

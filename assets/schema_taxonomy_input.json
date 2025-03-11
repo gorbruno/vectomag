@@ -1,0 +1,60 @@
+{
+    "title": "gorbruno/vectomag pipeline - params.taxonomy_input schema",
+    "description": "Schema for the file provided with params.taxonomy_input",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "id": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "meta": ["id"]
+            },
+            "group": {
+                "type": ["string", "integer"],
+                "pattern": "^\\S+$",
+                "meta": ["group"]
+            },
+            "assembler": {
+                "type": "string",
+                "pattern": "MEGAHIT|SPAdes|SPAdesHybrid",
+                "meta": ["assembler"]
+            },
+            "db_name": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "meta": ["mmseqs2_db_name"]
+            },
+            "mmseqs_prefix": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "meta": ["mmseqs2_prefix"]
+            },
+            "tophit_report": {
+                "type": "string",
+                "format": "file-path",
+                "pattern": "^\\S+\\tophit_report",
+                "exists": true
+            },
+            "tophit_aln": {
+                "type": "string",
+                "format": "file-path",
+                "pattern": "^\\S+\\tophit_aln",
+                "exists": true
+            },
+            "report": {
+                "type": "string",
+                "format": "file-path",
+                "pattern": "^\\S+\\report",
+                "exists": true
+            },
+            "fasta": {
+                "type": "string",
+                "format": "file-path",
+                "pattern": "^\\S+\\.(fasta|fas|fa|fna)(\\.gz)?$"
+            }
+        },
+        "required": ["id", "group", "assembler", "db_name", "tophit_report", "tophit_aln", "report", "fasta"]
+    },
+    "allOf": [{ "uniqueEntries": ["fasta"] }]
+}

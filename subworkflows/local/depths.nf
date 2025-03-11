@@ -40,7 +40,7 @@ workflow DEPTHS {
         .combine(depths, by: 0)
         .transpose()
         .map {
-            meta_combine, meta, bins, depth ->
+            _meta_combine, meta, bins, depth ->
             def meta_new = meta - meta.subMap('domain','refinement')
             [meta_new, bins, depth]
         }

@@ -1,5 +1,6 @@
 process QUAST {
     tag "${meta.assembler}-${meta.id}"
+    label "process_medium"
 
     conda "bioconda::quast=5.0.2"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -15,8 +16,17 @@ process QUAST {
     path "versions.yml"                  , emit: versions
 
     script:
+    def args = task.ext.args   ?: ''
     """
-    metaquast.py --threads "${task.cpus}" --rna-finding --max-ref-number 0 -l "${meta.assembler}-${meta.id}" "${assembly}" -o "QUAST"
+    metaquast.py \\
+        --threads "${task.cpus}" \\
+        --rna-finding \\
+        --max-ref-number 0 \\
+        -l "${meta.assembler}-${meta.id}" \\
+        "${assembly}" \\
+        -o "QUAST" \\
+        $args
+        
     cp QUAST/report.tsv QUAST/report_rawassemblies.tsv
 
     cat <<-END_VERSIONS > versions.yml

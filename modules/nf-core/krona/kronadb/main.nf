@@ -1,4 +1,4 @@
-def VERSION='2.7.1' // Version information not provided by tool on CLI
+// def VERSION='2.7.1' // Version information not provided by tool on CLI
 
 process KRONA_KRONADB {
     label 'process_single'
@@ -24,7 +24,7 @@ process KRONA_KRONADB {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        krona: $VERSION
+        krona: \$(ktImportTaxonomy | grep -Po "(?<=KronaTools )[0-9.]+")
     END_VERSIONS
     """
 }

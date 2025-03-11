@@ -40,6 +40,17 @@
                     "help_text": "If you have pre-computed assemblies from another source, it is possible to jump straight to the binning stage of the pipeline by supplying these assemblies in a CSV file. This CSV file should have at minimum three columns and the following header: `id,group,assembler,fasta` (group is only required when `--coassemble_group). Short reads must still be supplied in to `--input` in CSV format. See [usage docs](https://nf-co.re/mag/usage#input-specifications) for further details.",
                     "fa_icon": "fas fa-file-csv"
                 },
+                "taxonomy_input": {
+                    "type": "string",
+                    "mimetype": "text/csv",
+                    "format": "file-path",
+                    "exists": true,
+                    "schema": "assets/schema_taxonomy_input.json",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "Additional input CSV samplesheet containing information about taxonomy made by mmseqs2. When set, mmseqs easy-taxonomy is skipped.",
+                    "help_text": "If you have pre-computed taxonomy from mmseqs2, it is possible to skip easy-taxonomy step by supplying taxonomic information in a CSV file. This CSV file should have at minimum three columns and the following header: `id,group,assembler,db_name,mmseqs_prefix,tophit_report,tophit_aln,report,fasta` (group is only required when `--coassemble_group). Short reads must still be supplied in to `--input` in CSV format. See [usage docs](https://nf-co.re/mag/usage#input-specifications) for further details.",
+                    "fa_icon": "fas fa-file-csv"
+                },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
@@ -205,6 +216,18 @@
                     "description": "Custom MultiQC yaml file containing HTML including a methods description.",
                     "fa_icon": "fas fa-cog"
                 },
+                "sample_name_pattern": {
+                    "type": "string",
+                    "description": "Regular expression pattern to retrieve integer value from sample names (default: '')",
+                    "default": "",
+                    "fa_icon": "fas fa-cog"
+                },
+                "save_excel": {
+                    "type": "boolean",
+                    "description": "Save crucial output tables in excel format (default: false).",
+                    "default": false,
+                    "fa_icon": "fas fa-cog"
+                },
                 "validate_params": {
                     "type": "boolean",
                     "description": "Boolean whether to validate parameters against the schema at runtime",
@@ -280,21 +303,29 @@
                     "default": 15,
                     "description": "The minimum length of reads must have to be retained for downstream analysis."
                 },
-                "fastp_qualified_quality": {
-                    "type": "integer",
-                    "default": 15,
-                    "description": "Minimum phred quality value of a base to be qualified in fastp.",
-                    "help": "Reads with more than 40% of unqualified bases will be discarded."
-                },
-                "fastp_cut_mean_quality": {
-                    "type": "integer",
-                    "default": 15,
-                    "description": "The mean quality requirement used for per read sliding window cutting by fastp.",
-                    "help": "Used in combination with the fastp options '--cut_front' and '--cut_tail'. If the mean quality within a window (of size 4) is below `--fastp_cut_mean_quality`, the bases are dropped and the sliding window is moved further, otherwise it stops."
-                },
                 "fastp_save_trimmed_fail": {
                     "type": "boolean",
                     "description": "Save reads that fail fastp filtering in a separate file. Not used downstream."
+                },
+                "fastp_trim_poly_x": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-fast-forward",
+                    "description": "Fastp option to trim poly x at the beginning/end of sequence (default: true)."
+                },
+                "fastp_cut_mean_quality": {
+                    "type": "integer",
+                    "fa_icon": "fas fa-fast-forward",
+                    "description": "Fastp option of the mean quality requirement shared by cut_front, cut_tail or cut_sliding (default: 20)."
+                },
+                "fastp_length_required": {
+                    "type": "integer",
+                    "fa_icon": "fas fa-fast-forward",
+                    "description": "Reads shorter than length_required will be discarded by fastp (default: 30)."
+                },
+                "fastp_length_limit": {
+                    "type": "integer",
+                    "fa_icon": "fas fa-fast-forward",
+                    "description": "Reads longer than length_limit will be discarded by fastp,  default 0 means no limitation (default: 0)."
                 },
                 "adapterremoval_minquality": {
                     "type": "integer",
@@ -482,9 +513,42 @@
                     "format": "file-path",
                     "exists": true
                 },
+                "krona_mmseqs2_db": {
+                    "type": "string",
+                    "description": "Custom taxdump database for taxonomic binning with krona",
+                    "help_text": "Path to `taxonomy.tab` file for Krona, instead of downloading the default file. Point at the `.tab` file.",
+                    "format": "file-path",
+                    "exists": true
+                },
+                "mmseqs2_db": {
+                    "type": "string",
+                    "format": "path",
+                    "exists": true,
+                    "description": "Database for taxonomic classification with mmseqs2 easy-taxonomy."
+                },
+                "mmseqs2_search_type": {
+                    "type": "number",
+                    "default": 2,
+                    "description": "Search type for mmseqs2 easytaxonomy module, possible values: 2,3,4 (default: 2).",
+                    "help_text": "2 = translated; 3 = nucleotide; 4 = translated nucleotide alignment. For detailed explanation check https://mmseqs.com/latest/userguide.pdf.",
+                    "minimum": 2,
+                    "maximum": 4
+                },
                 "skip_krona": {
                     "type": "boolean",
                     "description": "Skip creating a krona plot for taxonomic binning."
+                },
+                "krona_sum": {
+                    "type": "boolean",
+                    "description": "Create one sum krona plot instead of separate plots."
+                },
+                "megahit_taxonomy": {
+                    "type": "boolean",
+                    "description": "Enable taxonomic classification for MEGAHIT contigs"
+                },
+                "spades_taxonomy": {
+                    "type": "boolean",
+                    "description": "Enable taxonomic classification for SPAdes contigs"
                 },
                 "cat_db": {
                     "type": "string",
@@ -656,10 +720,6 @@
             "type": "object",
             "default": "",
             "properties": {
-                "run_virus_identification": {
-                    "type": "boolean",
-                    "description": "Run virus identification."
-                },
                 "genomad_db": {
                     "type": "string",
                     "description": "Database for virus classification with geNomad",

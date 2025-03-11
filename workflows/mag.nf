@@ -23,20 +23,12 @@ include { DOMAIN_CLASSIFICATION                                 } from '../subwo
 include { DEPTHS                                                } from '../subworkflows/local/depths'
 include { LONGREAD_PREPROCESSING                                } from '../subworkflows/local/longread_preprocessing'
 include { SHORTREAD_PREPROCESSING                               } from '../subworkflows/local/shortread_preprocessing'
+include { READ_TAXONOMY                                         } from '../subworkflows/local/read_taxonomy'
+include { CONTIGS_ASSEMBLY                                      } from '../subworkflows/local/contigs_assembly'
 
 //
 // MODULE: Installed directly from nf-core/modules
 //
-include { UNTAR as CENTRIFUGEDB_UNTAR                           } from '../modules/nf-core/untar/main'
-include { CENTRIFUGE_CENTRIFUGE                                 } from '../modules/nf-core/centrifuge/centrifuge/main'
-include { CENTRIFUGE_KREPORT                                    } from '../modules/nf-core/centrifuge/kreport/main'
-include { KRONA_KRONADB                                         } from '../modules/nf-core/krona/kronadb/main'
-include { KRONA_KTIMPORTTAXONOMY                                } from '../modules/nf-core/krona/ktimporttaxonomy/main'
-include { KRAKENTOOLS_KREPORT2KRONA as KREPORT2KRONA_CENTRIFUGE } from '../modules/nf-core/krakentools/kreport2krona/main'
-include { MEGAHIT                                               } from '../modules/nf-core/megahit/main'
-include { SPADES as METASPADES                                  } from '../modules/nf-core/spades/main'
-include { SPADES as METASPADESHYBRID                            } from '../modules/nf-core/spades/main'
-include { GUNZIP as GUNZIP_ASSEMBLIES                           } from '../modules/nf-core/gunzip'
 include { GUNZIP as GUNZIP_ASSEMBLYINPUT                        } from '../modules/nf-core/gunzip'
 include { PRODIGAL                                              } from '../modules/nf-core/prodigal/main'
 include { PROKKA                                                } from '../modules/nf-core/prokka/main'
@@ -46,12 +38,6 @@ include { METAEUK_EASYPREDICT                                   } from '../modul
 //
 // MODULE: Local to the pipeline
 //
-include { KRAKEN2_DB_PREPARATION                                } from '../modules/local/kraken2_db_preparation'
-include { KRAKEN2                                               } from '../modules/local/kraken2'
-include { POOL_SINGLE_READS as POOL_SHORT_SINGLE_READS          } from '../modules/local/pool_single_reads'
-include { POOL_PAIRED_READS                                     } from '../modules/local/pool_paired_reads'
-include { POOL_SINGLE_READS as POOL_LONG_READS                  } from '../modules/local/pool_single_reads'
-include { QUAST                                                 } from '../modules/local/quast'
 include { QUAST_BINS                                            } from '../modules/local/quast_bins'
 include { QUAST_BINS_SUMMARY                                    } from '../modules/local/quast_bins_summary'
 include { CAT_DB                                                } from '../modules/local/cat_db'
@@ -66,6 +52,7 @@ workflow MAG {
     ch_raw_short_reads  // channel: samplesheet read in from --input
     ch_raw_long_reads
     ch_input_assemblies
+    ch_input_mmseqs
 
     main:
 
@@ -116,6 +103,30 @@ workflow MAG {
     }
     else {
         ch_krona_db_file = Channel.empty()
+    }
+
+    if (params.krona_mmseqs2_db) {
+        ch_krona_mmseqs2_db_file = Channel.value(file("${params.krona_mmseqs2_db}"))
+    }
+    else {
+        ch_krona_mmseqs2_db_file = Channel.empty()
+    }
+
+    if (params.mmseqs2_db) {
+        ch_mmseqs2_db = Channel
+        .fromPath("${params.mmseqs2_db}/*.index")
+        .map { dbtype_file ->
+            def db_path = dbtype_file.parent
+            def db_name = db_path.name
+            def base_name = db_name.tokenize('.')[0]
+                [
+                    [mmseqs2_db_name: base_name],  // metadata map
+                    db_path                        // path to the database
+                ]
+            }
+    }
+    else {
+        ch_mmseqs2_db = Channel.empty()
     }
 
     if (!params.keep_phix) {
@@ -208,100 +219,19 @@ workflow MAG {
 
     /*
     ================================================================================
-                                    Taxonomic information
+                                    Taxonomic read information
     ================================================================================
     */
 
-    // Centrifuge
-    if (!params.centrifuge_db) {
-        ch_db_for_centrifuge = Channel.empty()
-    }
-    else {
-        if (file(params.centrifuge_db).isDirectory()) {
-            ch_db_for_centrifuge = Channel.of(file(params.centrifuge_db, checkIfExists: true))
-        }
-        else {
-            ch_db_for_centrifuge = CENTRIFUGEDB_UNTAR(Channel.of([[id: 'db'], file(params.centrifuge_db, checkIfExists: true)])).untar.map { it[1] }.first()
-            ch_versions = ch_versions.mix(CENTRIFUGEDB_UNTAR.out.versions.first())
-        }
-    }
-
-    CENTRIFUGE_CENTRIFUGE(
-        ch_short_reads,
-        ch_db_for_centrifuge,
-        false,
-        false,
-    )
-    ch_versions = ch_versions.mix(CENTRIFUGE_CENTRIFUGE.out.versions.first())
-
-    CENTRIFUGE_KREPORT(CENTRIFUGE_CENTRIFUGE.out.results, ch_db_for_centrifuge)
-    ch_versions = ch_versions.mix(CENTRIFUGE_KREPORT.out.versions.first())
-
-    // Kraken2
-    if (!ch_kraken2_db_file.isEmpty()) {
-        if (ch_kraken2_db_file.extension in ['gz', 'tgz']) {
-            // Expects to be tar.gz!
-            ch_db_for_kraken2 = KRAKEN2_DB_PREPARATION(ch_kraken2_db_file).db
-        }
-        else if (ch_kraken2_db_file.isDirectory()) {
-            ch_db_for_kraken2 = Channel
-                .fromPath("${ch_kraken2_db_file}/*.k2d")
-                .collect()
-                .map { file ->
-                    if (file.size() >= 3) {
-                        def db_name = file[0].getParent().getName()
-                        [db_name, file]
-                    }
-                    else {
-                        error("Kraken2 requires '{hash,opts,taxo}.k2d' files.")
-                    }
-                }
-        }
-        else {
-            ch_db_for_kraken2 = Channel.empty()
-        }
-    }
-    else {
-        ch_db_for_kraken2 = Channel.empty()
-    }
-
-    KRAKEN2(
-        ch_short_reads,
-        ch_db_for_kraken2,
-    )
-    ch_versions = ch_versions.mix(KRAKEN2.out.versions.first())
-
-    if ((params.centrifuge_db || params.kraken2_db) && !params.skip_krona) {
-        if (params.krona_db) {
-            ch_krona_db = ch_krona_db_file
-        }
-        else {
-            KRONA_KRONADB()
-            ch_krona_db = KRONA_KRONADB.out.db
-            ch_versions = ch_versions.mix(KRONA_KRONADB.out.versions)
-        }
-
-        if (params.centrifuge_db) {
-            ch_centrifuge_for_krona = KREPORT2KRONA_CENTRIFUGE(CENTRIFUGE_KREPORT.out.kreport).txt.map { meta, files -> ['centrifuge', meta, files] }
-            ch_versions = ch_versions.mix(KREPORT2KRONA_CENTRIFUGE.out.versions.first())
-        }
-        else {
-            ch_centrifuge_for_krona = Channel.empty()
-        }
-
-        // Join together for Krona
-        ch_tax_classifications = ch_centrifuge_for_krona
-            .mix(KRAKEN2.out.results_for_krona)
-            .map { classifier, meta, report ->
-                def meta_new = meta + [classifier: classifier]
-                [meta_new, report]
-            }
-
-        KRONA_KTIMPORTTAXONOMY(
-            ch_tax_classifications,
-            ch_krona_db,
+    if (params.centrifuge_db || params.kraken2_db) {
+        READ_TAXONOMY(
+            ch_kraken2_db_file,
+            ch_krona_db_file,
+            ch_short_reads
         )
-        ch_versions = ch_versions.mix(KRONA_KTIMPORTTAXONOMY.out.versions.first())
+
+        ch_multiqc_files = ch_multiqc_files.mix(READ_TAXONOMY.out.centrifuge_report.collect { it[1] }.ifEmpty([]))
+        ch_multiqc_files = ch_multiqc_files.mix(READ_TAXONOMY.out.kraken2_report.collect { it[1] }.ifEmpty([]))
     }
 
     /*
@@ -310,147 +240,28 @@ workflow MAG {
     ================================================================================
     */
 
+    ch_assemblies = Channel.empty()
+    ch_quast_report = Channel.empty()
     if (!params.assembly_input) {
-
-        // Co-assembly preparation: grouping for MEGAHIT and for pooling for SPAdes
-        if (params.coassemble_group) {
-            // short reads
-            // group and set group as new id
-            ch_short_reads_grouped = ch_short_reads_assembly
-                .map { meta, reads -> [meta.group, meta, reads] }
-                .groupTuple(by: 0)
-                .map { group, metas, reads ->
-                    def assemble_as_single = params.single_end || (params.bbnorm && params.coassemble_group)
-                    def meta = [:]
-                    meta.id = "group-${group}"
-                    meta.group = group
-                    meta.single_end = assemble_as_single
-                    if (assemble_as_single) {
-                        [meta, reads.collect { it }, []]
-                    }
-                    else {
-                        [meta, reads.collect { it[0] }, reads.collect { it[1] }]
-                    }
-                }
-            // long reads
-            // group and set group as new id
-            ch_long_reads_grouped = ch_long_reads
-                .map { meta, reads -> [meta.group, meta, reads] }
-                .groupTuple(by: 0)
-                .map { group, metas, reads ->
-                    def meta = [:]
-                    meta.id = "group-${group}"
-                    meta.group = group
-                    [meta, reads.collect { it }]
-                }
-        }
-        else {
-            ch_short_reads_grouped = ch_short_reads_assembly
-                .filter { it[0].single_end }
-                .map { meta, reads -> [meta, [reads], []] }
-                .mix(
-                    ch_short_reads_assembly.filter { !it[0].single_end }.map { meta, reads -> [meta, [reads[0]], [reads[1]]] }
-                )
-            ch_long_reads_grouped = ch_long_reads
-        }
-
-        if (!params.skip_spades || !params.skip_spadeshybrid) {
-            if (params.coassemble_group) {
-                if (params.bbnorm) {
-                    ch_short_reads_spades = ch_short_reads_grouped.map { [it[0], it[1]] }
-                }
-                else {
-                    POOL_SHORT_SINGLE_READS(
-                        ch_short_reads_grouped.filter { it[0].single_end }
-                    )
-                    POOL_PAIRED_READS(
-                        ch_short_reads_grouped.filter { !it[0].single_end }
-                    )
-                    ch_short_reads_spades = POOL_SHORT_SINGLE_READS.out.reads.mix(POOL_PAIRED_READS.out.reads)
-                }
-            }
-            else {
-                ch_short_reads_spades = ch_short_reads_assembly
-            }
-            // long reads
-            if (!params.single_end && !params.skip_spadeshybrid) {
-                POOL_LONG_READS(ch_long_reads_grouped)
-                ch_long_reads_spades = POOL_LONG_READS.out.reads
-            }
-            else {
-                ch_long_reads_spades = Channel.empty()
-            }
-        }
-        else {
-            ch_short_reads_spades = Channel.empty()
-            ch_long_reads_spades = Channel.empty()
-        }
-
-        // Assembly
-
-        ch_assembled_contigs = Channel.empty()
-
-        if (!params.single_end && !params.skip_spades) {
-            METASPADES(ch_short_reads_spades.map { meta, reads -> [meta, reads, [], []] }, [], [])
-            ch_spades_assemblies = METASPADES.out.scaffolds.map { meta, assembly ->
-                def meta_new = meta + [assembler: 'SPAdes']
-                [meta_new, assembly]
-            }
-            ch_assembled_contigs = ch_assembled_contigs.mix(ch_spades_assemblies)
-            ch_versions = ch_versions.mix(METASPADES.out.versions.first())
-        }
-
-        if (!params.single_end && !params.skip_spadeshybrid) {
-            ch_short_reads_spades_tmp = ch_short_reads_spades.map { meta, reads -> [meta.id, meta, reads] }
-
-            ch_reads_spadeshybrid = ch_long_reads_spades
-                .map { meta, reads -> [meta.id, meta, reads] }
-                .combine(ch_short_reads_spades_tmp, by: 0)
-                .map { id, meta_long, long_reads, meta_short, short_reads -> [meta_short, short_reads, [], long_reads] }
-
-            METASPADESHYBRID(ch_reads_spadeshybrid, [], [])
-            ch_spadeshybrid_assemblies = METASPADESHYBRID.out.scaffolds.map { meta, assembly ->
-                def meta_new = meta + [assembler: "SPAdesHybrid"]
-                [meta_new, assembly]
-            }
-            ch_assembled_contigs = ch_assembled_contigs.mix(ch_spadeshybrid_assemblies)
-            ch_versions = ch_versions.mix(METASPADESHYBRID.out.versions.first())
-        }
-
-        if (!params.skip_megahit) {
-            MEGAHIT(ch_short_reads_grouped)
-            ch_megahit_assemblies = MEGAHIT.out.contigs.map { meta, assembly ->
-                def meta_new = meta + [assembler: 'MEGAHIT']
-                [meta_new, assembly]
-            }
-            ch_assembled_contigs = ch_assembled_contigs.mix(ch_megahit_assemblies)
-            ch_versions = ch_versions.mix(MEGAHIT.out.versions.first())
-        }
-
-
-
-        GUNZIP_ASSEMBLIES(ch_assembled_contigs)
-        ch_versions = ch_versions.mix(GUNZIP_ASSEMBLIES.out.versions)
-
-        ch_assemblies = GUNZIP_ASSEMBLIES.out.gunzip
+        CONTIGS_ASSEMBLY(
+            ch_short_reads_assembly,
+            ch_long_reads,
+            ch_mmseqs2_db
+        )
+        ch_assemblies = ch_assemblies.mix(CONTIGS_ASSEMBLY.out.assemblies)
+        ch_quast_report = CONTIGS_ASSEMBLY.out.quast_report
+        ch_versions = ch_versions.mix(CONTIGS_ASSEMBLY.out.versions)
     }
     else {
-        ch_assemblies_split = ch_input_assemblies.branch { meta, assembly ->
+        ch_assemblies_split = ch_input_assemblies.branch { _meta, assembly ->
             gzipped: assembly.getExtension() == "gz"
             ungzip: true
         }
 
         GUNZIP_ASSEMBLYINPUT(ch_assemblies_split.gzipped)
-        ch_versions = ch_versions.mix(GUNZIP_ASSEMBLYINPUT.out.versions)
 
-        ch_assemblies = Channel.empty()
         ch_assemblies = ch_assemblies.mix(ch_assemblies_split.ungzip, GUNZIP_ASSEMBLYINPUT.out.gunzip)
-    }
-
-    ch_quast_multiqc = Channel.empty()
-    if (!params.skip_quast) {
-        QUAST(ch_assemblies)
-        ch_versions = ch_versions.mix(QUAST.out.versions.first())
+        ch_versions = ch_versions.mix(GUNZIP_ASSEMBLYINPUT.out.versions)
     }
 
     /*
@@ -473,7 +284,7 @@ workflow MAG {
     ================================================================================
     */
 
-    if (params.run_virus_identification) {
+    if (params.genomad_db) {
         VIRUS_IDENTIFICATION(ch_assemblies, ch_genomad_db)
         ch_versions = ch_versions.mix(VIRUS_IDENTIFICATION.out.versions.first())
     }
@@ -570,19 +381,19 @@ workflow MAG {
 
         // If any two of the binners are both skipped at once, do not run because DAS_Tool needs at least one
         if (params.refine_bins_dastool) {
-            ch_prokarya_bins_dastool = ch_binning_results_bins.filter { meta, bins ->
+            ch_prokarya_bins_dastool = ch_binning_results_bins.filter { meta, _bins ->
                 meta.domain != "eukarya"
             }
 
-            ch_eukarya_bins_dastool = ch_binning_results_bins.filter { meta, bins ->
-                meta.domain == "eukarya"
-            }
+            // ch_eukarya_bins_dastool = ch_binning_results_bins.filter { meta, bins ->
+            //     meta.domain == "eukarya"
+            // }
 
             if (params.ancient_dna) {
                 ch_contigs_for_binrefinement = ANCIENT_DNA_ASSEMBLY_VALIDATION.out.contigs_recalled
             }
             else {
-                ch_contigs_for_binrefinement = BINNING_PREPARATION.out.grouped_mappings.map { meta, contigs, bam, bai -> [meta, contigs] }
+                ch_contigs_for_binrefinement = BINNING_PREPARATION.out.grouped_mappings.map { meta, contigs, _bam, _bai -> [meta, contigs] }
             }
 
             BINNING_REFINEMENT(ch_contigs_for_binrefinement, ch_prokarya_bins_dastool)
@@ -696,7 +507,7 @@ workflow MAG {
             ch_gtdbtk_summary = Channel.empty()
             if (gtdb) {
 
-                ch_gtdb_bins = ch_input_for_postbinning.filter { meta, bins ->
+                ch_gtdb_bins = ch_input_for_postbinning.filter { meta, _bins ->
                     meta.domain != "eukarya"
                 }
 
@@ -736,7 +547,7 @@ workflow MAG {
                     def meta_new = meta + [id: bin.getBaseName()]
                     [meta_new, bin]
                 }
-                .filter { meta, bin ->
+                .filter { meta, _bin ->
                     meta.domain != "eukarya"
                 }
 
@@ -751,7 +562,7 @@ workflow MAG {
         if (!params.skip_metaeuk && (params.metaeuk_db || params.metaeuk_mmseqs_db)) {
             ch_bins_for_metaeuk = ch_input_for_postbinning
                 .transpose()
-                .filter { meta, bin ->
+                .filter { meta, _bin ->
                     meta.domain in ["eukarya", "unclassified"]
                 }
                 .map { meta, bin ->
@@ -814,11 +625,8 @@ workflow MAG {
         )
     )
 
-    ch_multiqc_files = ch_multiqc_files.mix(CENTRIFUGE_KREPORT.out.kreport.collect { it[1] }.ifEmpty([]))
-    ch_multiqc_files = ch_multiqc_files.mix(KRAKEN2.out.report.collect { it[1] }.ifEmpty([]))
-
     if (!params.skip_quast) {
-        ch_multiqc_files = ch_multiqc_files.mix(QUAST.out.report.collect().ifEmpty([]))
+        ch_multiqc_files = ch_multiqc_files.mix(ch_quast_report.collect().ifEmpty([]))
 
         if (!params.skip_binning) {
             ch_multiqc_files = ch_multiqc_files.mix(QUAST_BINS.out.dir.collect().ifEmpty([]))

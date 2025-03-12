@@ -8,3 +8,5 @@ testing*
 *.pyc
 null/
 *.code-workspace
+.nf-test/*
+.nf-test.log

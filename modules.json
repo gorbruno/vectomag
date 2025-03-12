@@ -132,6 +132,11 @@
                         "git_sha": "911696ea0b62df80e900ef244d7867d177971f73",
                         "installed_by": ["modules"]
                     },
+                    "genescopefk": {
+                        "branch": "master",
+                        "git_sha": "a4d916a39231897a49c903089a548704c09b8ef3",
+                        "installed_by": ["modules"]
+                    },
                     "genomad/download": {
                         "branch": "master",
                         "git_sha": "ca813f3f73adedf3547a5a677e992d9d43a71870",
@@ -165,6 +170,11 @@
                     "gunzip": {
                         "branch": "master",
                         "git_sha": "e06548bfa36ee31869b81041879dd6b3a83b1d57",
+                        "installed_by": ["modules"]
+                    },
+                    "kraken2/kraken2": {
+                        "branch": "master",
+                        "git_sha": "409a308ba46284d8ebb48c2c1befd6f6433db3f7",
                         "installed_by": ["modules"]
                     },
                     "krakentools/kreport2krona": {
@@ -230,6 +240,11 @@
                     "nanoq": {
                         "branch": "master",
                         "git_sha": "666652151335353eef2fcd58880bcef5bc2928e1",
+                        "installed_by": ["modules"]
+                    },
+                    "picard/positionbaseddownsamplesam": {
+                        "branch": "master",
+                        "git_sha": "81880787133db07d9b4c1febd152c090eb8325dc",
                         "installed_by": ["modules"]
                     },
                     "porechop/abi": {
